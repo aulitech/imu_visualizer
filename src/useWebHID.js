@@ -23,7 +23,7 @@ const STATUS_ID   = 9;
 const HEARTBEAT_ID = 10;
 const REPORT_LEN  = 244;
 
-// Send a text command via OTA feature report and drain the response.
+// Send a text command via OTA feature report
 async function sendOtaCommand(device, command) {
   const payload = new TextEncoder().encode(command);
   const report  = new Uint8Array(REPORT_LEN).fill(0);
@@ -46,6 +46,7 @@ async function sendOtaCommand(device, command) {
   }
 }
 
+// Reads raw bytes and extracts acc/gyro values
 function parseSensor(data) {
   return {
     acc:  [
@@ -61,36 +62,37 @@ function parseSensor(data) {
   };
 }
 
+// 
 export function useWebHID(onSample) {
-  const [status, setStatus]         = useState("disconnected");
-  const [deviceName, setDeviceName] = useState(null);
-  const deviceRef     = useRef(null);
-  const onSampleRef   = useRef(onSample);
+  const [status, setStatus]         = useState("disconnected"); // re-renders on connect/disconnect; "connecting" = waiting for user to select device
+  const [deviceName, setDeviceName] = useState(null); // re-render on connect to show device name
+  const deviceRef     = useRef(null); // holds the current HIDDevice
   onSampleRef.current = onSample;
 
+  // fires on every input report; if sensor report, parses and calls on Sample; if status report, replies with heartbeat
   const handleInputReport = useCallback((event) => {
     if (event.reportId === SENSOR_ID) {
       onSampleRef.current(parseSensor(event.data));
     } else if (event.reportId === STATUS_ID) {
-      // Ack status reports so the device stays happy
       event.device.sendReport(HEARTBEAT_ID, new Uint8Array([0x00])).catch(() => {});
     }
   }, []);
 
+  // Opens the connection
   const connect = useCallback(async () => {
     setStatus("connecting");
     try {
-      const devices = await navigator.hid.requestDevice({
+      const devices = await navigator.hid.requestDevice({ // Shows HID device picker
         filters: [{ vendorId: VENDOR_ID, productId: PRODUCT_ID }],
       });
       if (devices.length === 0) throw new Error("No device selected");
 
-      const device = devices[0];
+      const device = devices[0]; // Opens device
       if (!device.opened) await device.open();
 
-      device.addEventListener("inputreport", handleInputReport);
+      device.addEventListener("inputreport", handleInputReport); // Registers handleInputReport listener
 
-      const onHidDisconnect = (e) => {
+      const onHidDisconnect = (e) => { //Registers disconnect listener
         if (e.device !== device) return;
         navigator.hid.removeEventListener("disconnect", onHidDisconnect);
         device.removeEventListener("inputreport", handleInputReport);
@@ -100,9 +102,9 @@ export function useWebHID(onSample) {
       };
       navigator.hid.addEventListener("disconnect", onHidDisconnect);
 
-      await sendOtaCommand(device, "sensor_stream on");
+      await sendOtaCommand(device, "sensor_stream on"); // Sends command to start stream
 
-      deviceRef.current = device;
+      deviceRef.current = device; // Sets status to "connected"
       setDeviceName(device.productName || "Cato");
       setStatus("connected");
     } catch (err) {
@@ -115,8 +117,8 @@ export function useWebHID(onSample) {
     const device = deviceRef.current;
     if (!device) return;
     try {
-      await sendOtaCommand(device, "sensor_stream off");
-      device.removeEventListener("inputreport", handleInputReport);
+      await sendOtaCommand(device, "sensor_stream off"); // sends command to stop stream
+      device.removeEventListener("inputreport", handleInputReport); // removes event listener
       await device.close();
     } catch {}
     deviceRef.current = null;

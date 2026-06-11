@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "if exist dist rmdir /s /q dist && vite build && cd dist && git init && git config http.sslVerify false && git add . && git commit -m deploy && git remote add origin https://github.com/aulitech/imu_visualizer.git && git push -f origin HEAD:gh-pages"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -14,6 +15,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
+    "gh-pages": "^6.3.0",
     "vite": "^5.4.1"
   }
 }

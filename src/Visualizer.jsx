@@ -8,14 +8,20 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 
+// Canvas size in pixels for the 3D viewport.
 const SIZE = 750;
 
+// Each entry describes one STL file to load: its URL, position offset,
+// initial rotation, and whether to use the fancy blue/gold shader.
+const BASE = import.meta.env.BASE_URL;
 const MODELS = [
-  { url: "/Cato%20solid%20model.stl",         pos: [0, 0, 0],    rot: [0, 0, 0],              shader: true  },
-  { url: "/Cato%20Text%20square%20thick.stl", pos: [0, 0, 6.15], rot: [0, 0, -Math.PI / 2],   shader: false },
-  { url: "/auli%20logo.stl",                  pos: [0, 0, 0],    rot: [0, Math.PI, 0],         shader: false },
+  { url: `${BASE}Cato%20solid%20model.stl`,         pos: [0, 0, 0],    rot: [0, 0, 0],              shader: true  },
+  { url: `${BASE}Cato%20Text%20square%20thick.stl`, pos: [0, 0, 6.15], rot: [0, 0, -Math.PI / 2],   shader: false },
+  { url: `${BASE}auli%20logo.stl`,                  pos: [0, 0, 0],    rot: [0, Math.PI, 0],         shader: false },
 ];
 
+// Vertex shader: passes the surface normal to the fragment shader so it
+// can calculate how much light hits each face.
 const VERT = `
   varying vec3 vNormal;
   void main() {
@@ -24,6 +30,8 @@ const VERT = `
   }
 `;
 
+// Fragment shader: blends between a dark blue base colour and a gold
+// highlight depending on how directly the face points toward the light.
 const FRAG = `
   uniform vec3 lightDir;
   uniform vec3 baseColor;
@@ -37,27 +45,34 @@ const FRAG = `
 `;
 
 export default function Visualizer({ sampleRef, resetRef }) {
+  // mountRef attaches to the <div> in the JSX so Three.js can inject its canvas into it.
   const mountRef = useRef(null);
 
   useEffect(() => {
     const mount = mountRef.current;
 
+    // Create the Three.js scene and set a dark navy background colour.
     const scene    = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a2e);
 
+    // Perspective camera: 45° field of view, placed 28 units back on the Z axis.
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     camera.position.set(0, 0, 28);
 
+    // WebGL renderer: inject its <canvas> element into the mount div.
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(SIZE, SIZE);
     renderer.setPixelRatio(window.devicePixelRatio);
     mount.appendChild(renderer.domElement);
 
+    // Lighting: soft ambient fill plus a directional "sun" light from the upper-right.
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const dir = new THREE.DirectionalLight(0xffffff, 1.0);
     dir.position.set(5, 10, 7);
     scene.add(dir);
 
+    // Two materials: the custom blue/gold shader for the main body,
+    // and plain grey for the text and logo parts.
     const shaderMat = new THREE.ShaderMaterial({
       uniforms: {
         lightDir:       { value: new THREE.Vector3(0.5, 1.0, 0.8).normalize() },
@@ -69,10 +84,13 @@ export default function Visualizer({ sampleRef, resetRef }) {
     });
     const greyMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
 
+    // A Group acts as a single parent object; rotating the group rotates all
+    // loaded meshes together. Scaled to 50% so the model fits in the viewport.
     const group = new THREE.Group();
     group.scale.setScalar(0.5);
     scene.add(group);
 
+    // Load each STL file asynchronously and add it to the group once ready.
     const loader = new STLLoader();
     MODELS.forEach(({ url, pos, rot, shader }) => {
       loader.load(url, (geo) => {
@@ -93,7 +111,7 @@ export default function Visualizer({ sampleRef, resetRef }) {
     const animate = () => {
       animId = requestAnimationFrame(animate);
 
-      // Parent can request a reset by setting resetRef.current = true
+      // If the "Reset Orientation" button was pressed, zero out all rotation.
       if (resetRef?.current) {
         rotX = rotY = rotZ = 0;
         lastTime = null;
@@ -102,6 +120,8 @@ export default function Visualizer({ sampleRef, resetRef }) {
         resetRef.current = false;
       }
 
+      // On each new sensor sample, convert gyro (deg/s) × elapsed time → radians
+      // and accumulate into the running rotation angles.
       const sample = sampleRef.current;
       if (sample && sample !== lastSample) {
         const now = performance.now();
@@ -120,6 +140,7 @@ export default function Visualizer({ sampleRef, resetRef }) {
     };
     animate();
 
+    // Cleanup: stop the animation loop and remove the canvas when the component unmounts.
     return () => {
       cancelAnimationFrame(animId);
       renderer.dispose();
@@ -127,5 +148,6 @@ export default function Visualizer({ sampleRef, resetRef }) {
     };
   }, [sampleRef, resetRef]);
 
+  // The div that Three.js will inject its canvas into.
   return <div ref={mountRef} style={{ borderRadius: "8px", overflow: "hidden" }} />;
 }
