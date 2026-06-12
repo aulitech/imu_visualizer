@@ -67,6 +67,7 @@ export function useWebHID(onSample) {
   const [status, setStatus]         = useState("disconnected"); // re-renders on connect/disconnect; "connecting" = waiting for user to select device
   const [deviceName, setDeviceName] = useState(null); // re-render on connect to show device name
   const deviceRef     = useRef(null); // holds the current HIDDevice
+  const onSampleRef   = useRef(onSample);
   onSampleRef.current = onSample;
 
   // fires on every input report; if sensor report, parses and calls on Sample; if status report, replies with heartbeat
@@ -119,7 +120,7 @@ export function useWebHID(onSample) {
     try {
       await sendOtaCommand(device, "sensor_stream off"); // sends command to stop stream
       device.removeEventListener("inputreport", handleInputReport); // removes event listener
-      await device.close();
+      await device.close(); // closes de
     } catch {}
     deviceRef.current = null;
     setStatus("disconnected");

@@ -1,17 +1,18 @@
+// Top-level component
 import { useRef, useCallback } from "react";
 import { useWebHID } from "./useWebHID";
 import Visualizer from "./Visualizer";
 import LiveChart from "./LiveChart";
 
 export default function App() {
-  const sampleRef = useRef(null);
-  const resetRef  = useRef(false);
+  const sampleRef = useRef(null);  // sampleRef holds latest IMU sample
+  const resetRef  = useRef(false); // resetRef = flag to signal orientation reset
 
-  const handleSample = useCallback((sample) => {
+  const handleSample = useCallback((sample) => { // function handed to useWebHID, drops current sample into sampleRef
     sampleRef.current = sample;
   }, []);
 
-  const { status, deviceName, connect, disconnect } = useWebHID(handleSample);
+  const { status, deviceName, connect, disconnect } = useWebHID(handleSample); // calls WebHID hook
 
   const connected = status === "connected";
 

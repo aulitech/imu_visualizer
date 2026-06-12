@@ -44,6 +44,33 @@ const FRAG = `
   }
 `;
 
+// Madgwick AHRS filter — fuses gyro (rad/s) + acc to produce a stable quaternion.
+// beta controls how aggressively the accelerometer corrects gyro drift.
+const BETA = 0.09;
+
+function madgwickUpdate([q0, q1, q2, q3], gx, gy, gz, ax, ay, az, dt) {
+  let norm = Math.sqrt(ax*ax + ay*ay + az*az);
+  if (norm === 0) norm = 1;
+  ax /= norm; ay /= norm; az /= norm;
+
+  // Gradient for gravity reference along -Y world axis
+  const q1q1 = q1*q1, q3q3 = q3*q3;
+  const q1q3sq = q1q1 + q3q3;
+  let s0 =  4*q0*q1q3sq           + 2*q3*ax - 2*q1*az;
+  let s1 =  4*q1*q1q3sq + 2*q2*ax - 4*q1*ay - 2*q0*az;
+  let s2 =  4*q2*q1q3sq + 2*q1*ax            + 2*q3*az;
+  let s3 =  4*q3*q1q3sq + 2*q0*ax - 4*q3*ay  + 2*q2*az;
+  norm = Math.sqrt(s0*s0 + s1*s1 + s2*s2 + s3*s3) || 1;
+  s0 /= norm; s1 /= norm; s2 /= norm; s3 /= norm;
+
+  const n0 = q0 + (0.5*(-q1*gx - q2*gy - q3*gz) - BETA*s0) * dt;
+  const n1 = q1 + (0.5*( q0*gx + q2*gz - q3*gy) - BETA*s1) * dt;
+  const n2 = q2 + (0.5*( q0*gy - q1*gz + q3*gx) - BETA*s2) * dt;
+  const n3 = q3 + (0.5*( q0*gz + q1*gy - q2*gx) - BETA*s3) * dt;
+  norm = Math.sqrt(n0*n0 + n1*n1 + n2*n2 + n3*n3) || 1;
+  return [n0/norm, n1/norm, n2/norm, n3/norm];
+}
+
 export default function Visualizer({ sampleRef, resetRef }) {
   // mountRef attaches to the <div> in the JSX so Three.js can inject its canvas into it.
   const mountRef = useRef(null);
@@ -102,8 +129,8 @@ export default function Visualizer({ sampleRef, resetRef }) {
       });
     });
 
-    // Gyro integration state — plain vars, no React state (no re-renders needed)
-    let rotX = 0, rotY = 0, rotZ = 0;
+    // Madgwick filter state — quaternion [w, x, y, z], no React state needed
+    let q = [1, 0, 0, 0];
     let lastTime = null;
     let lastSample = null;
 
@@ -111,26 +138,30 @@ export default function Visualizer({ sampleRef, resetRef }) {
     const animate = () => {
       animId = requestAnimationFrame(animate);
 
-      // If the "Reset Orientation" button was pressed, zero out all rotation.
+      // If the "Reset Orientation" button was pressed, reset quaternion to identity.
       if (resetRef?.current) {
-        rotX = rotY = rotZ = 0;
+        q = [1, 0, 0, 0];
         lastTime = null;
         lastSample = null;
-        group.rotation.set(0, 0, 0);
+        group.quaternion.set(0, 0, 0, 1);
         resetRef.current = false;
       }
 
-      // On each new sensor sample, convert gyro (deg/s) × elapsed time → radians
-      // and accumulate into the running rotation angles.
       const sample = sampleRef.current;
       if (sample && sample !== lastSample) {
         const now = performance.now();
         if (lastTime !== null) {
-          const dt = Math.min((now - lastTime) / 1000, 0.1); // seconds, capped at 100 ms
-          rotX += sample.gyro[0] * dt * (Math.PI / 180);
-          rotY += sample.gyro[1] * dt * (Math.PI / 180);
-          rotZ += sample.gyro[2] * dt * (Math.PI / 180);
-          group.rotation.set(rotX, rotY, rotZ);
+          const dt = Math.min((now - lastTime) / 1000, 0.1);
+          const DEG2RAD = Math.PI / 180;
+          q = madgwickUpdate(
+            q,
+            sample.gyro[0] * DEG2RAD,
+            sample.gyro[1] * DEG2RAD,
+            sample.gyro[2] * DEG2RAD,
+            sample.acc[0], sample.acc[1], sample.acc[2],
+            dt,
+          );
+          group.quaternion.set(q[1], q[2], q[3], q[0]); // THREE expects (x,y,z,w)
         }
         lastTime   = now;
         lastSample = sample;
