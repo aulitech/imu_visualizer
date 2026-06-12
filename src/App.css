@@ -31,7 +31,7 @@ h1 {
 }
 
 .visualizer-container {
-  width: 400px;
+  width: 800px;
   height: 400px;
   background: #1a1a2e;
   border-radius: 12px;
@@ -41,6 +41,7 @@ h1 {
 .visualizer-overlay {
   position: absolute;
   pointer-events: none;
+  opacity: 0.45;
 }
 
 button {
