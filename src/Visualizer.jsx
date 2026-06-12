@@ -46,7 +46,7 @@ const FRAG = `
 
 // Madgwick AHRS filter — fuses gyro (rad/s) + acc to produce a stable quaternion.
 // beta controls how aggressively the accelerometer corrects gyro drift.
-const BETA = 0.09;
+const BETA = 0.1;
 
 function madgwickUpdate([q0, q1, q2, q3], gx, gy, gz, ax, ay, az, dt) {
   let norm = Math.sqrt(ax*ax + ay*ay + az*az);
@@ -82,8 +82,8 @@ export default function Visualizer({ sampleRef, resetRef }) {
     const scene    = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a2e);
 
-    // Perspective camera: 45° field of view, placed 28 units back on the Z axis.
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    // Perspective camera: 65° field of view, placed 28 units back on the Z axis.
+    const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 1000);
     camera.position.set(0, 0, 28);
 
     // WebGL renderer: inject its <canvas> element into the mount div.
@@ -91,6 +91,11 @@ export default function Visualizer({ sampleRef, resetRef }) {
     renderer.setSize(SIZE, SIZE);
     renderer.setPixelRatio(window.devicePixelRatio);
     mount.appendChild(renderer.domElement);
+
+    // Ground grid — fixed in world space (not part of the rotating group) to show gravity direction.
+    const grid = new THREE.GridHelper(28, 14, 0x444466, 0x2a2a44);
+    grid.position.y = -8;
+    scene.add(grid);
 
     // Lighting: soft ambient fill plus a directional "sun" light from the upper-right.
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
