@@ -1,18 +1,19 @@
-// Visualizer.jsx — Live 3D model driven by real-time BLE IMU data.
+// Visualizer.jsx — Live 3D model driven by real-time IMU data.
 //
-// Reads from sampleRef each animation frame and integrates the gyroscope
-// (deg/s → cumulative rotation in radians) to orient the Cato model.
-// resetRef, when set to true by the parent, resets orientation to zero.
+// Two display modes (toggled with the slider below the canvas):
+//   vectors — model stays centered; a blue gravity arrow and orange linear-
+//             acceleration arrow are drawn in world space.
+//   motion  — linear acceleration is double-integrated to move the model
+//             around the viewport; no arrows.
+//
+// resetRef resets orientation, velocity, and position to zero.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 
-// Canvas size in pixels for the 3D viewport.
 const SIZE = 750;
 
-// Each entry describes one STL file to load: its URL, position offset,
-// initial rotation, and whether to use the fancy blue/gold shader.
 const BASE = import.meta.env.BASE_URL;
 const MODELS = [
   { url: `${BASE}Cato%20solid%20model.stl`,         pos: [0, 0, 0],    rot: [0, 0, 0],              shader: true  },
@@ -20,8 +21,6 @@ const MODELS = [
   { url: `${BASE}auli%20logo.stl`,                  pos: [0, 0, 0],    rot: [0, Math.PI, 0],         shader: false },
 ];
 
-// Vertex shader: passes the surface normal to the fragment shader so it
-// can calculate how much light hits each face.
 const VERT = `
   varying vec3 vNormal;
   void main() {
@@ -30,8 +29,6 @@ const VERT = `
   }
 `;
 
-// Fragment shader: blends between a dark blue base colour and a gold
-// highlight depending on how directly the face points toward the light.
 const FRAG = `
   uniform vec3 lightDir;
   uniform vec3 baseColor;
@@ -44,9 +41,40 @@ const FRAG = `
   }
 `;
 
-// Madgwick AHRS filter — fuses gyro (rad/s) + acc to produce a stable quaternion.
-// beta controls how aggressively the accelerometer corrects gyro drift.
 const BETA = 0.1;
+
+// ArrowHelper uses THREE.Line whose linewidth is ignored by WebGL.
+// This builds an arrow from a cylinder (shaft) + cone (head) so thickness is controllable.
+function makeArrow(color) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3 });
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 8), mat);
+  const head  = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1, 8), mat);
+  const group = new THREE.Group();
+  group.add(shaft);
+  group.add(head);
+
+  group.setDirection = (dir) => {
+    const d = dir.clone().normalize();
+    if (d.y > 0.9999) {
+      group.quaternion.set(0, 0, 0, 1);
+    } else if (d.y < -0.9999) {
+      group.quaternion.set(1, 0, 0, 0);
+    } else {
+      const axis = new THREE.Vector3(0, 1, 0).cross(d).normalize();
+      group.quaternion.setFromAxisAngle(axis, Math.acos(d.y));
+    }
+  };
+
+  group.setLength = (length, headLen = 0.8, headWidth = 0.5) => {
+    const shaftLen = Math.max(length - headLen, 0.01);
+    shaft.scale.y = shaftLen;
+    shaft.position.y = shaftLen / 2;
+    head.scale.set(headWidth / 0.28, headLen, headWidth / 0.28);
+    head.position.y = shaftLen + headLen / 2;
+  };
+
+  return group;
+}
 
 function madgwickUpdate([q0, q1, q2, q3], gx, gy, gz, ax, ay, az, dt) {
   let norm = Math.sqrt(ax*ax + ay*ay + az*az);
@@ -72,39 +100,34 @@ function madgwickUpdate([q0, q1, q2, q3], gx, gy, gz, ax, ay, az, dt) {
 }
 
 export default function Visualizer({ sampleRef, resetRef }) {
-  // mountRef attaches to the <div> in the JSX so Three.js can inject its canvas into it.
   const mountRef = useRef(null);
+  const [mode, setMode] = useState("vectors");
+  const modeRef = useRef("vectors");
 
   useEffect(() => {
     const mount = mountRef.current;
 
-    // Create the Three.js scene and set a dark navy background colour.
     const scene    = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a2e);
 
-    // Perspective camera: 65° field of view, placed 28 units back on the Z axis.
     const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 1000);
     camera.position.set(0, 0, 28);
 
-    // WebGL renderer: inject its <canvas> element into the mount div.
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(SIZE, SIZE);
     renderer.setPixelRatio(window.devicePixelRatio);
     mount.appendChild(renderer.domElement);
 
-    // Ground grid — fixed in world space (not part of the rotating group) to show gravity direction.
+    // Ground grid — fixed in world space (not part of the rotating group).
     const grid = new THREE.GridHelper(28, 14, 0x444466, 0x2a2a44);
     grid.position.y = -8;
     scene.add(grid);
 
-    // Lighting: soft ambient fill plus a directional "sun" light from the upper-right.
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     const dir = new THREE.DirectionalLight(0xffffff, 1.0);
     dir.position.set(5, 10, 7);
     scene.add(dir);
 
-    // Two materials: the custom blue/gold shader for the main body,
-    // and plain grey for the text and logo parts.
     const shaderMat = new THREE.ShaderMaterial({
       uniforms: {
         lightDir:       { value: new THREE.Vector3(0.5, 1.0, 0.8).normalize() },
@@ -116,13 +139,10 @@ export default function Visualizer({ sampleRef, resetRef }) {
     });
     const greyMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
 
-    // A Group acts as a single parent object; rotating the group rotates all
-    // loaded meshes together. Scaled to 50% so the model fits in the viewport.
     const group = new THREE.Group();
     group.scale.setScalar(0.5);
     scene.add(group);
 
-    // Load each STL file asynchronously and add it to the group once ready.
     const loader = new STLLoader();
     MODELS.forEach(({ url, pos, rot, shader }) => {
       loader.load(url, (geo) => {
@@ -134,8 +154,17 @@ export default function Visualizer({ sampleRef, resetRef }) {
       });
     });
 
-    // Madgwick filter state — quaternion [w, x, y, z], no React state needed
+    // Arrows for vectors mode — gravity (blue) and linear acceleration (orange).
+    const gravArrow = makeArrow(0x0277bd);
+    gravArrow.setDirection(new THREE.Vector3(0, -1, 0));
+    gravArrow.setLength(7, 0.8, 0.5);
+    const accArrow = makeArrow(0xe64a19);
+    accArrow.visible = false;
+    scene.add(gravArrow);
+    scene.add(accArrow);
+
     let q = [1, 0, 0, 0];
+    const velocity = new THREE.Vector3();
     let lastTime = null;
     let lastSample = null;
 
@@ -143,12 +172,13 @@ export default function Visualizer({ sampleRef, resetRef }) {
     const animate = () => {
       animId = requestAnimationFrame(animate);
 
-      // If the "Reset Orientation" button was pressed, reset quaternion to identity.
       if (resetRef?.current) {
         q = [1, 0, 0, 0];
+        velocity.set(0, 0, 0);
+        group.position.set(0, 0, 0);
+        group.quaternion.set(0, 0, 0, 1);
         lastTime = null;
         lastSample = null;
-        group.quaternion.set(0, 0, 0, 1);
         resetRef.current = false;
       }
 
@@ -166,7 +196,45 @@ export default function Visualizer({ sampleRef, resetRef }) {
             sample.acc[0], sample.acc[1], sample.acc[2],
             dt,
           );
-          group.quaternion.set(q[1], q[2], q[3], q[0]); // THREE expects (x,y,z,w)
+
+          const threeQuat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
+          group.quaternion.copy(threeQuat);
+
+          // Gravity in body frame: unit vector rotated into sensor frame, then scaled
+          // to match sensor units so the subtraction cancels when stationary.
+          const accVec = new THREE.Vector3(sample.acc[0], sample.acc[1], sample.acc[2]);
+          const gravBody = new THREE.Vector3(0, -1, 0)
+            .applyQuaternion(threeQuat.clone().invert())
+            .multiplyScalar(accVec.length() || 1);
+
+          // Linear acceleration: subtract gravity from total acc, then rotate to world frame.
+          const linAccWorld = accVec.clone().sub(gravBody).applyQuaternion(threeQuat);
+
+          if (modeRef.current === "vectors") {
+            group.position.set(0, 0, 0);
+            velocity.set(0, 0, 0);
+
+            gravArrow.visible = true;
+            gravArrow.setDirection(new THREE.Vector3(0, -1, 0));
+            gravArrow.setLength(7, 0.8, 0.4);
+
+            const accMag = linAccWorld.length();
+            if (accMag > 0.05) {
+              accArrow.visible = true;
+              accArrow.setDirection(linAccWorld.clone().normalize());
+              accArrow.setLength(Math.min(accMag * 2, 10), 0.8, 0.4);
+            } else {
+              accArrow.visible = false;
+            }
+          } else {
+            gravArrow.visible = false;
+            accArrow.visible = false;
+
+            velocity.addScaledVector(linAccWorld, dt);
+            velocity.multiplyScalar(0.98); // light damping to limit drift
+            group.position.addScaledVector(velocity, dt * 15);
+            group.position.clampLength(0, 10);
+          }
         }
         lastTime   = now;
         lastSample = sample;
@@ -176,7 +244,6 @@ export default function Visualizer({ sampleRef, resetRef }) {
     };
     animate();
 
-    // Cleanup: stop the animation loop and remove the canvas when the component unmounts.
     return () => {
       cancelAnimationFrame(animId);
       renderer.dispose();
@@ -184,6 +251,23 @@ export default function Visualizer({ sampleRef, resetRef }) {
     };
   }, [sampleRef, resetRef]);
 
-  // The div that Three.js will inject its canvas into.
-  return <div ref={mountRef} style={{ borderRadius: "8px", overflow: "hidden" }} />;
+  return (
+    <div style={{ display: "inline-block" }}>
+      <div ref={mountRef} style={{ borderRadius: "8px", overflow: "hidden" }} />
+      <div style={{ marginTop: "8px", display: "flex", gap: "8px", alignItems: "center", justifyContent: "center", color: "#ccc", fontSize: "14px" }}>
+        <span style={{ color: mode === "vectors" ? "#fff" : "#888" }}>Vectors</span>
+        <input
+          type="range" min="0" max="1" step="1"
+          value={mode === "motion" ? 1 : 0}
+          onChange={(e) => {
+            const newMode = e.target.value === "1" ? "motion" : "vectors";
+            modeRef.current = newMode;
+            setMode(newMode);
+          }}
+          style={{ cursor: "pointer", accentColor: "#1565c0" }}
+        />
+        <span style={{ color: mode === "motion" ? "#fff" : "#888" }}>Motion</span>
+      </div>
+    </div>
+  );
 }
