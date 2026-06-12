@@ -62,12 +62,12 @@ function parseSensor(data) {
   };
 }
 
-// 
+//
 export function useWebHID(onSample) {
   const [status, setStatus]         = useState("disconnected"); // re-renders on connect/disconnect; "connecting" = waiting for user to select device
   const [deviceName, setDeviceName] = useState(null); // re-render on connect to show device name
   const deviceRef     = useRef(null); // holds the current HIDDevice
-  onSampleRef.current = onSample;
+  const onSampleRef  = useRef(onSample);
 
   // fires on every input report; if sensor report, parses and calls on Sample; if status report, replies with heartbeat
   const handleInputReport = useCallback((event) => {
