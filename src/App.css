@@ -30,6 +30,19 @@ h1 {
   justify-content: center;
 }
 
+.visualizer-container {
+  width: 400px;
+  height: 400px;
+  background: #1a1a2e;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.visualizer-overlay {
+  position: absolute;
+  pointer-events: none;
+}
+
 button {
   padding: 0.4rem 1rem;
   font-size: 0.875rem;

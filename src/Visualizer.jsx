@@ -9,15 +9,15 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 
 // Canvas size in pixels for the 3D viewport.
-const SIZE = 750;
+const SIZE = 500;
 
 // Each entry describes one STL file to load: its URL, position offset,
 // initial rotation, and whether to use the fancy blue/gold shader.
 const BASE = import.meta.env.BASE_URL;
 const MODELS = [
   { url: `${BASE}Cato%20solid%20model.stl`,         pos: [0, 0, 0],    rot: [0, 0, 0],              shader: true  },
-  { url: `${BASE}Cato%20Text%20square%20thick.stl`, pos: [0, 0, 6.15], rot: [0, 0, -Math.PI / 2],   shader: false },
-  { url: `${BASE}auli%20logo.stl`,                  pos: [0, 0, 0],    rot: [0, Math.PI, 0],         shader: false },
+  { url: `${BASE}Cato%20Text%20square%20thick.stl`, pos: [0, 0, 12.15], rot: [0, 0, -Math.PI /2],   shader: false },
+  { url: `${BASE}auli%20logo.stl`,                  pos: [0, 0, -.10],    rot: [0, 0, 0],         shader: false },
 ];
 
 // Vertex shader: passes the surface normal to the fragment shader so it
@@ -53,15 +53,16 @@ export default function Visualizer({ sampleRef, resetRef }) {
 
     // Create the Three.js scene and set a dark navy background colour.
     const scene    = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
+    // scene.background = new THREE.Color(0x1a1a2e);
 
     // Perspective camera: 45° field of view, placed 28 units back on the Z axis.
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    camera.position.set(0, 0, 28);
+    camera.position.set(0, 0, 48);
 
     // WebGL renderer: inject its <canvas> element into the mount div.
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(SIZE, SIZE);
+    renderer.setClearColor(0x000000, 0); // Set clear color to transparent
     renderer.setPixelRatio(window.devicePixelRatio);
     mount.appendChild(renderer.domElement);
 
@@ -76,8 +77,8 @@ export default function Visualizer({ sampleRef, resetRef }) {
     const shaderMat = new THREE.ShaderMaterial({
       uniforms: {
         lightDir:       { value: new THREE.Vector3(0.5, 1.0, 0.8).normalize() },
-        baseColor:      { value: new THREE.Color(0x1565c0) },
-        highlightColor: { value: new THREE.Color(0xffd54f) },
+        baseColor:      { value: new THREE.Color(0x555555) },
+        highlightColor: { value: new THREE.Color(0xffffff) },
       },
       vertexShader:   VERT,
       fragmentShader: FRAG,
@@ -103,7 +104,9 @@ export default function Visualizer({ sampleRef, resetRef }) {
     });
 
     // Gyro integration state — plain vars, no React state (no re-renders needed)
-    let rotX = 0, rotY = 0, rotZ = 0;
+    const DefAULT_ROT_Y = Math.PI *3/8; // Start facing the camera (180° around Y)
+    let rotX = 0, rotZ = 0;
+    let rotY = DefAULT_ROT_Y;
     let lastTime = null;
     let lastSample = null;
 
@@ -113,7 +116,8 @@ export default function Visualizer({ sampleRef, resetRef }) {
 
       // If the "Reset Orientation" button was pressed, zero out all rotation.
       if (resetRef?.current) {
-        rotX = rotY = rotZ = 0;
+        rotX =  rotZ = 0;
+        rotY = DefAULT_ROT_Y; // Start facing the camera (180° around Y)
         lastTime = null;
         lastSample = null;
         group.rotation.set(0, 0, 0);
@@ -149,5 +153,5 @@ export default function Visualizer({ sampleRef, resetRef }) {
   }, [sampleRef, resetRef]);
 
   // The div that Three.js will inject its canvas into.
-  return <div ref={mountRef} style={{ borderRadius: "8px", overflow: "hidden" }} />;
+  return <div ref={mountRef} className="visualizer-overlay" />;
 }

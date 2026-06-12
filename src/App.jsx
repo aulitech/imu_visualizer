@@ -5,7 +5,7 @@ import LiveChart from "./LiveChart";
 
 export default function App() {
   const sampleRef = useRef(null);
-  const resetRef  = useRef(false);
+  const resetRef = useRef(false);
 
   const handleSample = useCallback((sample) => {
     sampleRef.current = sample;
@@ -25,22 +25,36 @@ export default function App() {
           disabled={status === "connecting"}
           className={connected ? "btn-disconnect" : "btn-connect"}
         >
-          {status === "connecting" ? "Connecting…" : connected ? "Disconnect" : "Connect Cato"}
+          {status === "connecting"
+            ? "Connecting…"
+            : connected
+              ? "Disconnect"
+              : "Connect Cato"}
         </button>
 
         {connected && (
-          <button className="btn-reset" onClick={() => { resetRef.current = true; }}>
+          <button
+            className="btn-reset"
+            onClick={() => {
+              resetRef.current = true;
+            }}
+          >
             Reset Orientation
           </button>
         )}
 
         <span className={`status status-${status}`}>
-          {connected ? `Connected: ${deviceName}` : status === "connecting" ? "Searching…" : "Not connected"}
+          {connected
+            ? `Connected: ${deviceName}`
+            : status === "connecting"
+              ? "Searching…"
+              : "Not connected"}
         </span>
       </div>
-
-      <Visualizer sampleRef={sampleRef} resetRef={resetRef} />
-      <LiveChart sampleRef={sampleRef} />
+      <div className="visualizer-container">
+        <Visualizer sampleRef={sampleRef} resetRef={resetRef} />
+        <LiveChart sampleRef={sampleRef} />
+      </div>
     </div>
   );
 }

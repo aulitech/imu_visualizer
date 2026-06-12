@@ -148,7 +148,7 @@ export default function LiveChart({ sampleRef }) {
       ref={canvasRef}
       width={W}
       height={H}
-      style={{ borderRadius: "8px" }}
+       className="visualizer-overlay"
     />
   );
 }
