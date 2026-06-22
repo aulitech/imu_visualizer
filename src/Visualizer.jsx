@@ -42,6 +42,9 @@ const FRAG = `
 `;
 
 const BETA = 0.1;
+const GYRO_SCALE_0 = 1.15; // increase above 1.0 to reduce gyro lag
+const GYRO_SCALE_1 = 1.14;
+const GYRO_SCALE_2 = 1.17;
 
 // ArrowHelper uses THREE.Line whose linewidth is ignored by WebGL.
 // This builds an arrow from a cylinder (shaft) + cone (head) so thickness is controllable.
@@ -190,9 +193,9 @@ export default function Visualizer({ sampleRef, resetRef }) {
           const DEG2RAD = Math.PI / 180;
           q = madgwickUpdate(
             q,
-            sample.gyro[0] * DEG2RAD,
-            sample.gyro[1] * DEG2RAD,
-            sample.gyro[2] * DEG2RAD,
+            sample.gyro[0] * DEG2RAD * GYRO_SCALE_0,
+            sample.gyro[1] * DEG2RAD * GYRO_SCALE_1,
+            sample.gyro[2] * DEG2RAD * GYRO_SCALE_2,
             sample.acc[0], sample.acc[1], sample.acc[2],
             dt,
           );

@@ -50,14 +50,14 @@ async function sendOtaCommand(device, command) {
 function parseSensor(data) {
   return {
     acc:  [
-       data.getFloat32(12, true),
-       data.getFloat32( 4, true),
-       data.getFloat32( 8, true),
+       data.getFloat32(12, true), // y??
+       data.getFloat32( 4, true), // x??
+       data.getFloat32( 8, true), // z??
     ],
     gyro: [
-       data.getFloat32(24, true),
-      -data.getFloat32(16, true),
-      -data.getFloat32(20, true),
+       data.getFloat32(24, true), // y
+       -data.getFloat32(16, true), //x
+       -data.getFloat32(20, true), //z
     ],
   };
 }
