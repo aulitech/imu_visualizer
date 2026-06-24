@@ -10,7 +10,7 @@ const HELP_SECTIONS = [
     body: [
       "Click Connect Cato to open the browser's device picker. Select your Cato device from the list (it must be paired via USB or Bluetooth beforehand).",
       "Click Disconnect to end the session and stop the sensor stream.",
-      "Click Reset Orientation to zero out the current orientation estimate and return the model to its default position.",
+      "Click Reset Orientation to zero out the current orientation estimate and return the model to its default position with the Auli.Tech logo facing out of the screen.",
     ],
   },
   {
@@ -21,18 +21,10 @@ const HELP_SECTIONS = [
     ],
   },
   {
-    title: "Vectors mode",
+    title: "Acceleration vectors",
     body: [
-      "The model stays centred in the viewport. Two arrows are drawn in world space:",
-      "Blue arrow — estimated gravity direction. Always points downward when the filter is tracking correctly.",
-      "Orange arrow — linear acceleration (total accelerometer reading minus the gravity component). It appears only when the device is actively moving and fades when the device is stationary.",
-    ],
-  },
-  {
-    title: "Motion mode",
-    body: [
-      "Linear acceleration is double-integrated to move the model through the viewport, giving a sense of translational motion. The arrows are hidden in this mode.",
-      "A small amount of velocity damping is applied each frame to prevent unbounded drift. The model snaps back if it reaches the edge of the view.",
+      "Use the toggle below the 3D view to show or hide the acceleration arrow.",
+      "Orange arrow — linear acceleration (total accelerometer reading minus the gravity component). It appears only while the device is actively moving and disappears when stationary.",
     ],
   },
   {
@@ -41,7 +33,6 @@ const HELP_SECTIONS = [
       "The scrolling chart shows the most recent 250 samples from the sensor stream.",
       "Top panel — Gyroscope (°/s): rate of rotation around each axis.",
       "Bottom panel — Accelerometer (m/s²): total acceleration including gravity (~9.81 m/s² when stationary).",
-      "Each axis is colour-coded: blue = axis 0, green = axis 1, red = axis 2.",
     ],
   },
 ];

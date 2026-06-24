@@ -104,8 +104,8 @@ function madgwickUpdate([q0, q1, q2, q3], gx, gy, gz, ax, ay, az, dt) {
 
 export default function Visualizer({ sampleRef, resetRef }) {
   const mountRef = useRef(null);
-  const [mode, setMode] = useState("vectors");
-  const modeRef = useRef("vectors");
+  const [showVectors, setShowVectors] = useState(true);
+  const showVectorsRef = useRef(true);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -157,17 +157,11 @@ export default function Visualizer({ sampleRef, resetRef }) {
       });
     });
 
-    // Arrows for vectors mode — gravity (blue) and linear acceleration (orange).
-    const gravArrow = makeArrow(0x0277bd);
-    gravArrow.setDirection(new THREE.Vector3(0, -1, 0));
-    gravArrow.setLength(7, 0.8, 0.5);
     const accArrow = makeArrow(0xe64a19);
     accArrow.visible = false;
-    scene.add(gravArrow);
     scene.add(accArrow);
 
-    let q = [1, 0, 0, 0];
-    const velocity = new THREE.Vector3();
+    let q = [0, 0, 1, 0]; // 180° around Y
     const smoothedAcc = new THREE.Vector3();
     let lastTime = null;
     let lastSample = null;
@@ -177,11 +171,10 @@ export default function Visualizer({ sampleRef, resetRef }) {
       animId = requestAnimationFrame(animate);
 
       if (resetRef?.current) {
-        q = [1, 0, 0, 0];
-        velocity.set(0, 0, 0);
+        q = [0, 0, 1, 0]; // 180° around Y
         smoothedAcc.set(0, 0, 0);
         group.position.set(0, 0, 0);
-        group.quaternion.set(0, 0, 0, 1);
+        group.quaternion.set(0, 1, 0, 0); // Three.js takes (x,y,z,w)
         lastTime = null;
         lastSample = null;
         resetRef.current = false;
@@ -216,32 +209,19 @@ export default function Visualizer({ sampleRef, resetRef }) {
           const linAccWorld = accVec.clone().sub(gravBody).applyQuaternion(threeQuat);
           smoothedAcc.lerp(linAccWorld, 0.1);
 
-          if (modeRef.current === "vectors") {
-            group.position.set(0, 0, 0);
-            velocity.set(0, 0, 0);
+          group.position.set(0, 0, 0);
 
-            gravArrow.visible = true;
-            gravArrow.setDirection(new THREE.Vector3(0, -1, 0));
-            gravArrow.setLength(7, 0.8, 0.4);
-
+          if (showVectorsRef.current) {
             const accMag = smoothedAcc.length();
             if (accMag > 0.15) {
               accArrow.visible = true;
               accArrow.setDirection(smoothedAcc.clone().normalize());
-              accArrow.setLength(Math.min(accMag * 2, 10), 0.8, 0.4);
+              accArrow.setLength(Math.min(accMag * 2.4, 12), 0.8, 0.4);
             } else {
               accArrow.visible = false;
             }
           } else {
-            gravArrow.visible = false;
             accArrow.visible = false;
-
-            if (linAccWorld.length() > 5) {
-              velocity.addScaledVector(linAccWorld, dt);
-            }
-            velocity.multiplyScalar(0.98); // light damping to limit drift
-            group.position.addScaledVector(velocity, dt * 15);
-            group.position.clampLength(0, 10);
           }
         }
         lastTime   = now;
@@ -263,18 +243,17 @@ export default function Visualizer({ sampleRef, resetRef }) {
     <div style={{ display: "inline-block" }}>
       <div ref={mountRef} style={{ borderRadius: "8px", overflow: "hidden" }} />
       <div style={{ marginTop: "8px", display: "flex", gap: "8px", alignItems: "center", justifyContent: "center", color: "#ccc", fontSize: "14px" }}>
-        <span style={{ color: mode === "vectors" ? "#fff" : "#888" }}>Vectors</span>
         <input
           type="range" min="0" max="1" step="1"
-          value={mode === "motion" ? 1 : 0}
+          value={showVectors ? 1 : 0}
           onChange={(e) => {
-            const newMode = e.target.value === "1" ? "motion" : "vectors";
-            modeRef.current = newMode;
-            setMode(newMode);
+            const show = e.target.value === "1";
+            showVectorsRef.current = show;
+            setShowVectors(show);
           }}
           style={{ cursor: "pointer", accentColor: "#1565c0" }}
         />
-        <span style={{ color: mode === "motion" ? "#fff" : "#888" }}>Motion</span>
+        <span style={{ color: showVectors ? "#fff" : "#888" }}>Vectors</span>
       </div>
     </div>
   );
