@@ -168,6 +168,7 @@ export default function Visualizer({ sampleRef, resetRef }) {
 
     let q = [1, 0, 0, 0];
     const velocity = new THREE.Vector3();
+    const smoothedAcc = new THREE.Vector3();
     let lastTime = null;
     let lastSample = null;
 
@@ -178,6 +179,7 @@ export default function Visualizer({ sampleRef, resetRef }) {
       if (resetRef?.current) {
         q = [1, 0, 0, 0];
         velocity.set(0, 0, 0);
+        smoothedAcc.set(0, 0, 0);
         group.position.set(0, 0, 0);
         group.quaternion.set(0, 0, 0, 1);
         lastTime = null;
@@ -208,10 +210,11 @@ export default function Visualizer({ sampleRef, resetRef }) {
           const accVec = new THREE.Vector3(sample.acc[0], sample.acc[1], sample.acc[2]);
           const gravBody = new THREE.Vector3(0, -1, 0)
             .applyQuaternion(threeQuat.clone().invert())
-            .multiplyScalar(accVec.length() || 1);
+            .multiplyScalar(9.81);
 
           // Linear acceleration: subtract gravity from total acc, then rotate to world frame.
           const linAccWorld = accVec.clone().sub(gravBody).applyQuaternion(threeQuat);
+          smoothedAcc.lerp(linAccWorld, 0.1);
 
           if (modeRef.current === "vectors") {
             group.position.set(0, 0, 0);
@@ -221,10 +224,10 @@ export default function Visualizer({ sampleRef, resetRef }) {
             gravArrow.setDirection(new THREE.Vector3(0, -1, 0));
             gravArrow.setLength(7, 0.8, 0.4);
 
-            const accMag = linAccWorld.length();
-            if (accMag > 0.05) {
+            const accMag = smoothedAcc.length();
+            if (accMag > 0.15) {
               accArrow.visible = true;
-              accArrow.setDirection(linAccWorld.clone().normalize());
+              accArrow.setDirection(smoothedAcc.clone().normalize());
               accArrow.setLength(Math.min(accMag * 2, 10), 0.8, 0.4);
             } else {
               accArrow.visible = false;
@@ -233,7 +236,9 @@ export default function Visualizer({ sampleRef, resetRef }) {
             gravArrow.visible = false;
             accArrow.visible = false;
 
-            velocity.addScaledVector(linAccWorld, dt);
+            if (linAccWorld.length() > 5) {
+              velocity.addScaledVector(linAccWorld, dt);
+            }
             velocity.multiplyScalar(0.98); // light damping to limit drift
             group.position.addScaledVector(velocity, dt * 15);
             group.position.clampLength(0, 10);

@@ -16,7 +16,7 @@ const BUFFER  = 250; // samples kept in rolling window
 
 // One colour and label per axis, shared by both panels.
 const COLORS = ["#1e88e5","#43a047","#e53935"]; // X=green Y=blue Z=red
-const LABELS = ["Acc/Gyro[0]", "Acc/Gyro[1]", "Acc/Gyro[2]"];
+const LABELS = ["X", "Y", "Z"];
 
 // Draws a single data panel (either gyro or accelerometer).
 // Receives the canvas context, the three axis buffers, the vertical

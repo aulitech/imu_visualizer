@@ -54,3 +54,34 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .status { font-size: 0.82rem; color: #888; }
 .status-connected { color: #66bb6a; }
 .status-connecting { color: #ffa726; }
+
+.btn-help { background: transparent; color: #90caf9; border-color: #1e4d7a; }
+.btn-help:hover { background: #0d2035; border-color: #90caf9; }
+
+.help-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  max-width: 750px;
+  width: 100%;
+  background: #12121f;
+  border: 1px solid #1e1e3a;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+}
+
+.help-section h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #90caf9;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.help-section p {
+  margin: 0.25rem 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #b0b8cc;
+}
