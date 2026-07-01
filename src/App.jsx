@@ -17,8 +17,8 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1>Cato IMU Visualizer</h1>
-
+      <div className="header">
+        <h1>Cato IMU Visualizer</h1>
       <div className="controls">
         <button
           onClick={connected ? disconnect : connect}
@@ -51,9 +51,10 @@ export default function App() {
               : "Not connected"}
         </span>
       </div>
+</div>
       <div className="visualizer-container">
-        <Visualizer sampleRef={sampleRef} resetRef={resetRef} />
-        <LiveChart sampleRef={sampleRef} />
+        <Visualizer sampleRef={sampleRef} resetRef={resetRef} height={window.innerHeight} width={window.innerWidth} />
+        <LiveChart sampleRef={sampleRef} height={window.innerHeight} width={window.innerWidth}/>
       </div>
     </div>
   );

@@ -7,11 +7,11 @@ import { useEffect, useRef } from "react";
 
 // Canvas dimensions and layout constants.
 // MARGIN reserves space on the left for Y-axis labels and on top for the legend.
-const W       = 750;
-const PANEL_H = 140;
-const GAP     = 12;
-const MARGIN  = { left: 52, right: 16, top: 28, bottom: 8 };
-const H       = MARGIN.top + PANEL_H + GAP + PANEL_H + MARGIN.bottom;
+const W       = window.innerWidth;
+const H       = window.innerHeight;
+const GAP     = H / 8
+const PANEL_H = H / 4;
+const MARGIN  = { left: W * 0.1, right: W * 0.05, top: H / 16, bottom: 0 };
 const BUFFER  = 250; // samples kept in rolling window
 
 // One colour and label per axis, shared by both panels.
@@ -33,13 +33,13 @@ function drawPanel(ctx, buffers, panelTop, axisLabel) {
   const yMin = dataMin - pad;
   const yMax = dataMax + pad;
 
-  // Draw the dark panel background and a subtle border.
+  /* Draw the dark panel background and a subtle border.
   ctx.fillStyle = "#0d0d1a";
   ctx.fillRect(MARGIN.left, panelTop, plotW, PANEL_H);
   ctx.strokeStyle = "#2a2a3a";
   ctx.lineWidth = 1;
   ctx.strokeRect(MARGIN.left, panelTop, plotW, PANEL_H);
-
+*/
   // Draw three horizontal grid lines (top, middle, bottom) with numeric
   // tick labels showing the corresponding data value on the Y axis.
   ctx.font = "9px system-ui";
@@ -47,7 +47,7 @@ function drawPanel(ctx, buffers, panelTop, axisLabel) {
   [0, 0.5, 1].forEach((t) => {
     const val = yMax - t * (yMax - yMin);
     const y   = panelTop + t * PANEL_H;
-    ctx.strokeStyle = "#1e1e2e";
+    ctx.strokeStyle = "#676766";
     ctx.lineWidth = 0.75;
     ctx.beginPath();
     ctx.moveTo(MARGIN.left, y);

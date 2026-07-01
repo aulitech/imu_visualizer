@@ -8,16 +8,28 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
 
-// Canvas size in pixels for the 3D viewport.
-const SIZE = 500;
-
 // Each entry describes one STL file to load: its URL, position offset,
 // initial rotation, and whether to use the fancy blue/gold shader.
 const BASE = import.meta.env.BASE_URL;
 const MODELS = [
-  { url: `${BASE}Cato%20solid%20model.stl`,         pos: [0, 0, 0],    rot: [0, 0, 0],              shader: true  },
-  { url: `${BASE}Cato%20Text%20square%20thick.stl`, pos: [0, 0, 12.15], rot: [0, 0, -Math.PI /2],   shader: false },
-  { url: `${BASE}auli%20logo.stl`,                  pos: [0, 0, -.10],    rot: [0, 0, 0],         shader: false },
+  {
+    url: `${BASE}Cato%20solid%20model.stl`,
+    pos: [0, 0, 0],
+    rot: [0, 0, 0],
+    shader: true,
+  },
+  {
+    url: `${BASE}Cato%20Text%20square%20thick.stl`,
+    pos: [0, 0, 12.15],
+    rot: [0, 0, -Math.PI / 2],
+    shader: false,
+  },
+  {
+    url: `${BASE}auli%20logo.stl`,
+    pos: [0, 0, -0.1],
+    rot: [0, 0, 0],
+    shader: false,
+  },
 ];
 
 // Vertex shader: passes the surface normal to the fragment shader so it
@@ -44,7 +56,7 @@ const FRAG = `
   }
 `;
 
-export default function Visualizer({ sampleRef, resetRef }) {
+export default function Visualizer({ sampleRef, resetRef, height, width }) {
   // mountRef attaches to the <div> in the JSX so Three.js can inject its canvas into it.
   const mountRef = useRef(null);
 
@@ -52,16 +64,24 @@ export default function Visualizer({ sampleRef, resetRef }) {
     const mount = mountRef.current;
 
     // Create the Three.js scene and set a dark navy background colour.
-    const scene    = new THREE.Scene();
+    const scene = new THREE.Scene();
     // scene.background = new THREE.Color(0x1a1a2e);
 
     // Perspective camera: 45° field of view, placed 28 units back on the Z axis.
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    camera.position.set(0, 0, 48);
+
+    // const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    // camera.position.set(0, 0, 48);
+    const distance = 500; // Place the camera 500 units back
+
+    // Calculate the perfect Field of View (FOV) matching pixels
+    const fov = 2 * Math.atan(height / (2 * distance)) * (180 / Math.PI);
+
+    const camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 1000);
+    camera.position.set(0, 0, distance);
 
     // WebGL renderer: inject its <canvas> element into the mount div.
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(SIZE, SIZE);
+    renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 0); // Set clear color to transparent
     renderer.setPixelRatio(window.devicePixelRatio);
     mount.appendChild(renderer.domElement);
@@ -76,11 +96,11 @@ export default function Visualizer({ sampleRef, resetRef }) {
     // and plain grey for the text and logo parts.
     const shaderMat = new THREE.ShaderMaterial({
       uniforms: {
-        lightDir:       { value: new THREE.Vector3(0.5, 1.0, 0.8).normalize() },
-        baseColor:      { value: new THREE.Color(0x555555) },
+        lightDir: { value: new THREE.Vector3(0.5, 1.0, 0.8).normalize() },
+        baseColor: { value: new THREE.Color(0x555555) },
         highlightColor: { value: new THREE.Color(0xffffff) },
       },
-      vertexShader:   VERT,
+      vertexShader: VERT,
       fragmentShader: FRAG,
     });
     const greyMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
@@ -88,10 +108,11 @@ export default function Visualizer({ sampleRef, resetRef }) {
     // A Group acts as a single parent object; rotating the group rotates all
     // loaded meshes together. Scaled to 50% so the model fits in the viewport.
     const group = new THREE.Group();
-    group.scale.setScalar(0.5);
+
     scene.add(group);
 
     // Load each STL file asynchronously and add it to the group once ready.
+
     const loader = new STLLoader();
     MODELS.forEach(({ url, pos, rot, shader }) => {
       loader.load(url, (geo) => {
@@ -100,12 +121,20 @@ export default function Visualizer({ sampleRef, resetRef }) {
         mesh.position.set(...pos);
         mesh.rotation.set(...rot);
         group.add(mesh);
+        const groupBox = new THREE.Box3().setFromObject(group);
+        const groupSize = new THREE.Vector3();
+        groupBox.getSize(groupSize);
+        const scaleFactor = Math.min(width / groupSize.x, height / groupSize.y) * 0.25;
+        group.scale.setScalar(scaleFactor); // Scale to fit viewport
+        // Output represents the total bounding size of all combined children
+        console.log("Scale Factor:", scaleFactor);
       });
     });
 
     // Gyro integration state — plain vars, no React state (no re-renders needed)
-    const DefAULT_ROT_Y = Math.PI *3/8; // Start facing the camera (180° around Y)
-    let rotX = 0, rotZ = 0;
+    const DefAULT_ROT_Y = (Math.PI * 3) / 8; // Start facing the camera (180° around Y)
+    let rotX = 0,
+      rotZ = 0;
     let rotY = DefAULT_ROT_Y;
     let lastTime = null;
     let lastSample = null;
@@ -116,7 +145,7 @@ export default function Visualizer({ sampleRef, resetRef }) {
 
       // If the "Reset Orientation" button was pressed, zero out all rotation.
       if (resetRef?.current) {
-        rotX =  rotZ = 0;
+        rotX = rotZ = 0;
         rotY = DefAULT_ROT_Y; // Start facing the camera (180° around Y)
         lastTime = null;
         lastSample = null;
@@ -136,7 +165,7 @@ export default function Visualizer({ sampleRef, resetRef }) {
           rotZ += sample.gyro[2] * dt * (Math.PI / 180);
           group.rotation.set(rotX, rotY, rotZ);
         }
-        lastTime   = now;
+        lastTime = now;
         lastSample = sample;
       }
 
@@ -148,7 +177,8 @@ export default function Visualizer({ sampleRef, resetRef }) {
     return () => {
       cancelAnimationFrame(animId);
       renderer.dispose();
-      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+      if (mount.contains(renderer.domElement))
+        mount.removeChild(renderer.domElement);
     };
   }, [sampleRef, resetRef]);
 
