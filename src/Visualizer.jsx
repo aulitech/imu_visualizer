@@ -41,7 +41,7 @@ const FRAG = `
   }
 `;
 
-const BETA = 0.1;
+const BETA = 0.6;
 const GYRO_SCALE_0 = 1.15; // increase above 1.0 to reduce gyro lag
 const GYRO_SCALE_1 = 1.14;
 const GYRO_SCALE_2 = 1.17;
