@@ -69,6 +69,12 @@ export default function App() {
           </button>
         )}
 
+        {connected && (
+          <button className="btn-reset" disabled title="Coming soon">
+            Send OTA Command… (coming soon)
+          </button>
+        )}
+
         <span className={`status status-${status}`}>
           {connected ? `Connected: ${deviceName}` : status === "connecting" ? "Searching…" : "Not connected"}
         </span>
